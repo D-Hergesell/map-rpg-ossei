@@ -220,7 +220,7 @@ button:focus-visible, input:focus-visible, .dlabel:focus-visible { outline: 2px 
           hooks: [],
           npcs: [] },
         { id: "imperial", name: "Distrito Imperial", kind: "Perímetro fortificado", color: "#8fa3bd",
-          style: "imperial", h: [2, 4], density: 0.86, tower: 0, threat: 4,
+          style: "imperial", labelAt: [18, 51], h: [2, 4], density: 0.86, tower: 0, threat: 4,
           control: "O Destacamento Imperial",
           blurb: "Uma ilha murada de geometria imperial cravada numa cidade de ferrugem. Odiada e temida em igual medida: entra-se de cabeça baixa e reza-se para sair.",
           sites: [
@@ -229,12 +229,12 @@ button:focus-visible, input:focus-visible, .dlabel:focus-visible { outline: 2px 
           hooks: [],
           npcs: ["Tenente Daren Voss, comandante da guarnição"] },
         { id: "limpo", name: "Distrito Limpo", kind: "Núcleo imperial", color: "#dfe8f2",
-          style: "imperial", h: [2, 3], density: 0.8, tower: 0, threat: 4,
+          style: "imperial", noLabel: true, h: [2, 3], density: 0.8, tower: 0, threat: 4,
           control: "O Destacamento Imperial",
           blurb: "O único pedaço reto, iluminado e estéril de Ossei. Chão liso, luz branca uniforme, cheiro de desinfetante, silêncio vigiado.",
           sites: [
             { name: "Depósito Imperial", at: [14, 45], note: "Armazém alfandegário fortificado, com antena de retransmissão no telhado." },
-            { name: "A Praça Limpa & A Fila", at: [21, 39], note: "Praça de telas e estandartes imperiais, e a fila ao lado: permissões, rações, salvo-condutos, horas de espera." }
+            { name: "A Praça Limpa & A Fila", at: [21, 39], noLabel: true, note: "Praça de telas e estandartes imperiais, e a fila ao lado: permissões, rações, salvo-condutos, horas de espera." }
           ],
           hooks: [],
           npcs: [] },
@@ -676,6 +676,7 @@ button:focus-visible, input:focus-visible, .dlabel:focus-visible { outline: 2px 
   var siteLabels = [];
   ZONES.forEach(function (Z, g) {
     Z.sites.forEach(function (S) {
+      if (S.noLabel) return;
       var e = el("div", "slabel", S.name);
       e.addEventListener("click", function () { select(g, true); });
       labelLayer.appendChild(e);
@@ -694,7 +695,7 @@ button:focus-visible, input:focus-visible, .dlabel:focus-visible { outline: 2px 
     var k;
     for (k = 0; k < zoneLabels.length; k++) {
       var Z = ZONES[k], e = zoneLabels[k];
-      if (!labelsOn || !shown(Z.L)) { e.style.display = "none"; continue; }
+      if (!labelsOn || Z.noLabel || !shown(Z.L)) { e.style.display = "none"; continue; }
       place(e, stats[k].cx, groups[Z.L].position.y + (Z.L === 0 ? stats[k].max * 0.55 + 4 : 5), stats[k].cz, 12);
       e.dataset.on = (k === sel) ? "true" : "false";
     }
