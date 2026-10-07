@@ -1,0 +1,921 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Ossei — Mapa da Cidade</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@500;600;700&family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500&display=swap" rel="stylesheet">
+<style>
+/* Layout: palco 3D de altura total à esquerda, coluna de dossiê à direita. Visual escuro único, por escolha. */
+:root {
+  --bg: #070b12;
+  --panel: #0c1320;
+  --panel-2: #111b2b;
+  --line: #1d2b40;
+  --fg: #d6dfeb;
+  --muted: #8393ab;
+  --accent: #f2b544;
+  --accent-ink: #1a1203;
+  --display: "Chakra Petch", "Arial Narrow", sans-serif;
+  --body: "IBM Plex Sans", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --mono: "IBM Plex Mono", ui-monospace, "SFMono-Regular", Menlo, monospace;
+  color-scheme: dark;
+}
+html, body { height: 100%; }
+body { margin: 0; background: var(--bg); color: var(--fg); font: 14px/1.5 var(--body); overflow: hidden; }
+* { box-sizing: border-box; }
+[hidden] { display: none !important; }
+.app { height: 100%; display: grid; grid-template-columns: minmax(0, 1fr) 360px; }
+.stage { position: relative; min-width: 0; min-height: 0; background: var(--bg); }
+#gl { position: absolute; inset: 0; width: 100%; height: 100%; display: block; touch-action: none; cursor: grab; }
+#gl:active { cursor: grabbing; }
+.label-layer { position: absolute; inset: 0; pointer-events: none; overflow: hidden; }
+.dlabel {
+  position: absolute; left: 0; top: 0; pointer-events: auto; cursor: pointer;
+  font: 600 11px/1 var(--display); letter-spacing: .12em; text-transform: uppercase;
+  color: var(--fg); background: rgba(7, 11, 18, .78); border: 1px solid var(--line);
+  padding: 5px 8px; white-space: nowrap; will-change: transform;
+}
+.dlabel i { display: inline-block; width: 8px; height: 8px; margin-right: 7px; vertical-align: -1px; }
+.dlabel[data-on="true"] { border-color: var(--accent); color: #fff; }
+.slabel {
+  position: absolute; left: 0; top: 0; pointer-events: auto; cursor: pointer;
+  font: 500 10px/1 var(--mono); letter-spacing: .04em; color: var(--fg);
+  background: rgba(7, 11, 18, .6); padding: 3px 5px; white-space: nowrap; will-change: transform;
+}
+.slabel::before { content: "\25C6"; color: var(--accent); margin-right: 5px; font-size: 8px; vertical-align: 1px; }
+.tip {
+  position: absolute; pointer-events: none; z-index: 3; padding: 6px 9px;
+  font: 500 12px/1.3 var(--body); background: var(--panel); border: 1px solid var(--line); color: var(--fg);
+  transform: translate(14px, 14px); white-space: nowrap;
+}
+.tip small { display: block; color: var(--muted); font: 400 11px/1.3 var(--mono); }
+.hint {
+  position: absolute; left: 16px; bottom: 14px; right: 16px; pointer-events: none;
+  font: 400 11px/1.4 var(--mono); color: var(--muted); letter-spacing: .02em;
+}
+.compass {
+  position: absolute; right: 16px; top: 14px; pointer-events: none;
+  font: 500 11px/1 var(--mono); color: var(--muted); letter-spacing: .08em; text-transform: uppercase;
+}
+aside { min-height: 0; overflow-y: auto; background: var(--panel); border-left: 1px solid var(--line); padding: 18px 16px 24px; display: flex; flex-direction: column; gap: 22px; }
+.head { display: flex; flex-direction: column; gap: 6px; }
+.eyebrow { font: 500 11px/1 var(--mono); letter-spacing: .14em; text-transform: uppercase; color: var(--muted); }
+h1 { margin: 0; font: 700 26px/1.1 var(--display); letter-spacing: .02em; text-wrap: balance; }
+.lede { margin: 0; color: var(--muted); font-size: 13px; }
+.chip {
+  align-self: flex-start; font: 500 11px/1.3 var(--mono); padding: 5px 7px; color: var(--accent);
+  border: 1px solid color-mix(in srgb, var(--accent) 45%, transparent);
+}
+h2 { margin: 0 0 8px; font: 600 12px/1 var(--display); letter-spacing: .16em; text-transform: uppercase; color: var(--muted); }
+.layers { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 6px; }
+.layer {
+  text-align: left; padding: 9px 10px; background: transparent; color: var(--fg); border: 1px solid var(--line); cursor: pointer;
+  font: 600 12px/1.2 var(--display); letter-spacing: .1em; text-transform: uppercase;
+}
+.layer small { display: block; margin-top: 4px; font: 400 10px/1.2 var(--mono); letter-spacing: .04em; color: var(--muted); text-transform: none; }
+.layer:hover { background: var(--panel-2); }
+.layer[aria-pressed="true"] { border-color: var(--accent); background: var(--panel-2); color: #fff; }
+.dossier { border: 1px solid var(--line); background: var(--panel-2); padding: 14px; display: flex; flex-direction: column; gap: 12px; min-width: 0; }
+.dossier h3 { margin: 0; font: 700 22px/1.15 var(--display); text-wrap: balance; }
+.kind { font: 500 11px/1.3 var(--mono); letter-spacing: .1em; text-transform: uppercase; color: var(--muted); display: flex; align-items: center; gap: 8px; }
+.kind i { width: 10px; height: 10px; display: inline-block; flex: none; }
+.dossier p { margin: 0; color: var(--fg); max-width: 62ch; }
+.dossier p.ctl { font: 400 12px/1.4 var(--mono); color: var(--muted); }
+.stats { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
+.stat { border-top: 1px solid var(--line); padding-top: 6px; min-width: 0; }
+.stat b { display: block; font: 500 16px/1.2 var(--mono); font-variant-numeric: tabular-nums; }
+.stat span { font: 400 11px/1.3 var(--mono); color: var(--muted); text-transform: uppercase; letter-spacing: .06em; }
+.pips { display: flex; gap: 4px; align-items: center; font: 500 11px/1 var(--mono); color: var(--muted); text-transform: uppercase; letter-spacing: .08em; }
+.pips span.p { width: 18px; height: 6px; background: var(--line); }
+.pips span.p.on { background: var(--accent); }
+.sub { display: flex; flex-direction: column; gap: 4px; }
+.sub ul { margin: 0; padding-left: 18px; color: var(--fg); }
+.sub li { margin: 2px 0; }
+.sub li b { font-weight: 500; color: #fff; }
+.sub h4 { margin: 0; font: 600 11px/1 var(--display); letter-spacing: .14em; text-transform: uppercase; color: var(--muted); }
+.list { display: flex; flex-direction: column; gap: 6px; }
+.list h5 { margin: 8px 0 0; font: 500 10px/1 var(--mono); letter-spacing: .14em; text-transform: uppercase; color: var(--muted); }
+.list h5:first-child { margin-top: 0; }
+.list p { margin: 0; font: 400 12px/1.5 var(--mono); color: var(--muted); }
+.row {
+  display: grid; grid-template-columns: 12px minmax(0, 1fr) auto; gap: 10px; align-items: center; text-align: left;
+  width: 100%; padding: 9px 10px; background: transparent; color: var(--fg); border: 1px solid var(--line);
+  font: 500 13px/1.2 var(--body); cursor: pointer;
+}
+.row:hover { background: var(--panel-2); }
+.row[aria-pressed="true"] { border-color: var(--accent); background: var(--panel-2); }
+.row i { width: 12px; height: 12px; display: block; }
+.row em { font: 400 11px/1 var(--mono); font-style: normal; color: var(--muted); }
+button:focus-visible, input:focus-visible, .dlabel:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.view { display: flex; flex-direction: column; gap: 12px; }
+.btn {
+  align-self: flex-start; background: transparent; color: var(--fg); border: 1px solid var(--line); padding: 8px 12px;
+  font: 600 12px/1 var(--display); letter-spacing: .1em; text-transform: uppercase; cursor: pointer;
+}
+.btn:hover { background: var(--panel-2); }
+.check { display: flex; align-items: center; gap: 8px; font: 400 13px/1.2 var(--body); color: var(--fg); }
+.check input { accent-color: var(--accent); width: 16px; height: 16px; margin: 0; }
+.scale { font: 400 11px/1.5 var(--mono); color: var(--muted); }
+@media (max-width: 760px) {
+  .app { grid-template-columns: minmax(0, 1fr); grid-template-rows: minmax(0, 1fr) minmax(0, 48%); }
+  aside { border-left: 0; border-top: 1px solid var(--line); }
+  h1 { font-size: 22px; }
+  .hint { display: none; }
+}
+</style>
+</head>
+<body>
+
+<div class="app">
+  <div class="stage" id="stage">
+    <canvas id="gl" aria-label="Mapa 3D de Ossei. Arraste para orbitar, role para aproximar, arraste com o botão direito para mover."></canvas>
+    <div class="label-layer" id="labels"></div>
+    <div class="tip" id="tip" hidden></div>
+    <div class="compass" id="compass"></div>
+    <div class="hint">Arraste para orbitar &middot; role para aproximar &middot; botão direito para mover &middot; clique em uma zona</div>
+  </div>
+  <aside>
+    <div class="head">
+      <div class="eyebrow" id="eyebrow"></div>
+      <h1 id="cityName"></h1>
+      <p class="lede" id="lede"></p>
+    </div>
+    <section>
+      <h2>Camada</h2>
+      <div class="layers" id="layers"></div>
+    </section>
+    <section>
+      <h2>Dossiê</h2>
+      <div class="dossier" id="dossier" aria-live="polite"></div>
+    </section>
+    <section>
+      <h2>Zonas</h2>
+      <div class="list" id="list"></div>
+    </section>
+    <section>
+      <h2>Visualização</h2>
+      <div class="view">
+        <label class="check"><input id="showLabels" type="checkbox" checked> Mostrar rótulos das zonas</label>
+        <label class="check"><input id="showSites" type="checkbox" checked> Mostrar locais nomeados</label>
+        <button class="btn" id="reset" type="button">Restaurar vista</button>
+        <div class="scale" id="scale"></div>
+      </div>
+    </section>
+  </aside>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+<script>
+(function () {
+  "use strict";
+
+  /* DATA:BEGIN */
+  /* ------------------------------------------------------------------
+     CONFIG — VERSÃO DOS JOGADORES. Só o que qualquer morador de Ossei sabe.
+     Grade: 67 x 67 células, 1 célula = 10 m, 1 unidade = 5 m. Célula [i, j]: i cresce para leste, j para sul.
+     ------------------------------------------------------------------ */
+  var CITY = {
+    name: "Ossei", seed: 1138, maxHeightM: 60, blocksPerSide: 11, blockSize: 5, cell: 2,
+    title: "Ossei — Mapa da Cidade",
+    eyebrow: "Vethara · Mapa da cidade",
+    lede: "Cidade vertical e torta, empilhada sobre os eixos e pilares de uma velha estação mineradora republicana.",
+    section: "A cidade em corte: as ruas em cima, as fundações da velha estação logo abaixo e, sob elas, o que ninguém mapeou. As colunas verde-água são os poços dos hangares do Porto Baixo.",
+    npcLabel: "Figuras conhecidas",
+    flagship: -1
+  };
+
+  var SHAFTS = [];
+
+  // Prédios nomeados da superfície: [zona, i, j, largura, profundidade, altura, mastro]
+  var LANDMARKS = [
+    ["casco", 31, 14, 2, 1, 1.4, 0],
+    ["casco", 38, 19, 1, 1, 1.6, 0],
+    ["imperial", 26, 38, 3, 3, 3, 3.5],
+    ["limpo", 13, 44, 4, 3, 2.4, 2.5]
+  ];
+
+  var LAYERS = [
+    { id: "surface", name: "Superfície", sub: "Ruas e pilhas", level: "0",
+      blurb: "O nível da rua e tudo o que se empilhou por cima. A chuva ácida, as tempestades de 180 km/h e os relâmpagos roxos mantêm Ossei baixa: nada passa de 60 m, e as únicas linhas retas pertencem ao Império.",
+      zones: [
+        { id: "casco", name: "Casco Velho", kind: "Bairro antigo", color: "#c8743a", at: [0.42, 0.22],
+          h: [3, 10], density: 0.93, tower: 0.08, clutter: 0.14, bridge: 0.16, threat: 2,
+          control: "Os Cavaeiros de Ossei",
+          blurb: "As pilhas mais antigas da cidade, erguidas direto sobre os pilares da velha estação mineradora. Andares novos de sucata assentam tortos sobre fundações velhas, e passagens cobertas ligam prédios que nunca foram feitos para se tocar. Cheira a solda, óleo de droid e café queimado.",
+          sites: [
+            { name: "Daan & Associados — Reparos", at: [31, 14], note: "Oficina mecânica larga e baixa, ao nível do solo. Cobra menos do que devia. O letreiro perde uma letra a cada estação." },
+            { name: "A Ferrugem Dourada", at: [38, 19], note: "Cantina de piso de placas enferrujadas, iluminada por lanternas de plasma penduradas. Aberta das 14h às 3h." }
+          ],
+          hooks: [],
+          npcs: ["Prex \"Parafuso\" Daan, mecânico", "Marreth, dona da Ferrugem Dourada"] },
+        { id: "labirinto", name: "Labirinto Comercial", kind: "Mercado e becos", color: "#f2b544", at: [0.52, 0.70],
+          h: [1.5, 5], density: 0.97, tower: 0.03, clutter: 0.30, bridge: 0.10, threat: 3,
+          control: "Comerciantes independentes",
+          blurb: "Becos apertados que convergem, mercados de sucata e fendas comerciais sob passarelas suspensas, com telhados baixos que emendam uns nos outros. As poças de chuva ácida fumegam no chão. Aqui se compra de tudo, e se perde qualquer um de vista.",
+          sites: [],
+          hooks: [],
+          npcs: [] },
+        { id: "imperial", name: "Distrito Imperial", kind: "Perímetro fortificado", color: "#8fa3bd",
+          style: "imperial", h: [2, 4], density: 0.86, tower: 0, threat: 4,
+          control: "O Destacamento Imperial",
+          blurb: "Uma ilha murada de geometria imperial cravada numa cidade de ferrugem. Odiada e temida em igual medida: entra-se de cabeça baixa e reza-se para sair.",
+          sites: [
+            { name: "Consulado Imperial", at: [27, 39], note: "Três andares de face lisa na fronteira fortificada, com a antena relé principal no topo." }
+          ],
+          hooks: [],
+          npcs: ["Tenente Daren Voss, comandante da guarnição"] },
+        { id: "limpo", name: "Distrito Limpo", kind: "Núcleo imperial", color: "#dfe8f2",
+          style: "imperial", h: [2, 3], density: 0.8, tower: 0, threat: 4,
+          control: "O Destacamento Imperial",
+          blurb: "O único pedaço reto, iluminado e estéril de Ossei. Chão liso, luz branca uniforme, cheiro de desinfetante, silêncio vigiado.",
+          sites: [
+            { name: "Depósito Imperial", at: [14, 45], note: "Armazém alfandegário fortificado, com antena de retransmissão no telhado." },
+            { name: "A Praça Limpa & A Fila", at: [21, 39], note: "Praça de telas e estandartes imperiais, e a fila ao lado: permissões, rações, salvo-condutos, horas de espera." }
+          ],
+          hooks: [],
+          npcs: [] },
+        { id: "porto", name: "Porto Baixo", kind: "Bocas dos hangares", color: "#39b8a8", at: [0.80, 0.56],
+          h: [1, 2.6], density: 0.42, tower: 0, clutter: 0.05, bridge: 0, threat: 3,
+          control: "A Guilda dos Ventos",
+          blurb: "Sete bocas de hangar abertas nas fundações para as naves esperarem o tempo passar. Aqui em cima há só pátio, galpões baixos e o pedágio da Guilda. Toda carga que cruza a atmosfera passa por aqui ou paga.",
+          sites: [
+            { name: "Boca do Hangar 6", at: [58, 42], note: "Um dos sete poços." }
+          ],
+          hooks: [],
+          npcs: ["Senna Oru", "Cálice"] }
+      ] },
+    { id: "under", name: "Subterrâneo", sub: "Sob as ruas", level: "−1",
+      blurb: "As fundações da velha estação, logo abaixo das ruas. Os hangares do Porto Baixo são a única parte que qualquer um conhece. Dizem que há túneis antigos por baixo da cidade inteira, mas quem sabe o caminho não desenha mapas.",
+      zones: [
+        { id: "hangares", name: "Porto Baixo — Hangares", kind: "Sete hangares", color: "#39b8a8", threat: 3,
+          control: "A Guilda dos Ventos",
+          blurb: "Sete hangares profundos escavados nas fundações de Ossei para proteger cargueiros e caças do clima corrosivo, alinhados num corredor de serviço. Base, pista e alfândega da Guilda.",
+          sites: [
+            { name: "Hangar 6", at: [58, 42], note: "Um dos sete hangares." }
+          ],
+          hooks: [],
+          npcs: ["Senna Oru", "Cálice"] }
+      ] },
+    { id: "deep", name: "As Profundezas", sub: "Abaixo das fundações", level: "−2",
+      blurb: "Abaixo das fundações, onde a estação de fato minerava. Não existe mapa. Ninguém na superfície diz saber o que sobrou lá embaixo.",
+      zones: [] }
+  ];
+  /* DATA:END */
+
+  var $ = function (id) { return document.getElementById(id); };
+  var PERIOD = CITY.blockSize + 1;
+  var N = CITY.blocksPerSide * PERIOD + 1;
+  var CELL = CITY.cell;
+  var M_PER_UNIT = 5;
+  var MAX_H = CITY.maxHeightM / M_PER_UNIT;
+  var GAP = 46;                      // espaçamento vertical entre camadas na vista empilhada
+  var NL = LAYERS.length;
+
+  var ZONES = [];
+  var gi = {};
+  LAYERS.forEach(function (Ly, L) {
+    Ly.zones.forEach(function (Z) { Z.L = L; Z.g = ZONES.length; gi[Z.id] = Z.g; ZONES.push(Z); });
+  });
+
+  // ----- ruído / rng -----
+  function mulberry32(a) {
+    return function () {
+      a |= 0; a = (a + 0x6D2B79F5) | 0;
+      var t = Math.imul(a ^ (a >>> 15), 1 | a);
+      t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+      return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+    };
+  }
+  function hash2(x, y, s) {
+    var h = (Math.imul(x, 374761393) + Math.imul(y, 668265263) + Math.imul(s, 1442695041)) | 0;
+    h = Math.imul(h ^ (h >>> 13), 1274126177);
+    return ((h ^ (h >>> 16)) >>> 0) / 4294967296;
+  }
+  function vnoise(x, y, s) {
+    var xi = Math.floor(x), yi = Math.floor(y), xf = x - xi, yf = y - yi;
+    var u = xf * xf * (3 - 2 * xf), v = yf * yf * (3 - 2 * yf);
+    var a = hash2(xi, yi, s), b = hash2(xi + 1, yi, s), c = hash2(xi, yi + 1, s), d = hash2(xi + 1, yi + 1, s);
+    return a + (b - a) * u + (c - a) * v + (a - b - c + d) * u * v;
+  }
+  function lerp(a, b, t) { return a + (b - a) * t; }
+  function cellX(i) { return (i - N / 2 + 0.5) * CELL; }
+  function at(i, j) { return j * N + i; }
+
+  // ----- mapas de células: índice da zona (-1 = nenhuma) e tipo, por camada -----
+  // superfície: 0 lote, 1 rua, 2 pedra aberta fora da cidade, 3 poço de hangar, 4 praça
+  // enterradas: 0 rocha, 1 piso de câmara, 2 túnel
+  var ZC = [], K = [];
+  for (var l0 = 0; l0 < NL; l0++) { ZC.push(new Int16Array(N * N).fill(-1)); K.push(new Uint8Array(N * N)); }
+
+  // Porto Baixo: sete hangares [i, j] de 7 x 6 células num corredor comum. Existem em duas camadas.
+  var HANGARS = [[46, 24], [55, 24], [46, 32], [55, 32], [46, 40], [55, 40], [50, 48]];
+  var HW = 7, HH = 6;
+  function nearHangar(i, j, m) {
+    for (var k = 0; k < HANGARS.length; k++) {
+      var h = HANGARS[k];
+      if (i >= h[0] - m && i < h[0] + HW + m && j >= h[1] - m && j < h[1] + HH + m) return true;
+    }
+    return false;
+  }
+  function inPit(i, j) {
+    for (var k = 0; k < HANGARS.length; k++) {
+      var h = HANGARS[k];
+      if (i >= h[0] + 1 && i <= h[0] + 5 && j >= h[1] + 1 && j <= h[1] + 4) return true;
+    }
+    return false;
+  }
+
+  var reserved = new Uint8Array(N * N);
+  LANDMARKS.forEach(function (m) {
+    for (var dj = 0; dj < m[4]; dj++) for (var di = 0; di < m[3]; di++) reserved[at(m[1] + di, m[2] + dj)] = 1;
+  });
+  reserved[at(31, 15)] = 1; reserved[at(32, 15)] = 1;
+
+  // --- superfície: os distritos imperiais são retângulos exatos de quadras; o resto é torto ---
+  (function () {
+    var free = LAYERS[0].zones.filter(function (Z) { return Z.at; });
+    for (var j = 0; j < N; j++) {
+      for (var i = 0; i < N; i++) {
+        var q = at(i, j);
+        var u = (i + 0.5) / N, v = (j + 0.5) / N;
+        var inImp = i >= 6 && i <= 30 && j >= 30 && j <= 54;
+        var inLimpo = i >= 12 && i <= 24 && j >= 36 && j <= 48;
+        var port = nearHangar(i, j, 2);
+        var du = (u - 0.5) * 2, dv = (v - 0.5) * 2;
+        var edge = 0.93 + (vnoise(u * 4, v * 4, 7) - 0.5) * 0.22;
+        if (!inImp && !port && Math.sqrt(du * du + dv * dv) > edge) { K[0][q] = 2; continue; }
+        var g;
+        if (inLimpo) g = gi.limpo;
+        else if (inImp) g = gi.imperial;
+        else if (port) g = gi.porto;
+        else {
+          var wu = u + (vnoise(u * 5, v * 5, 11) - 0.5) * 0.14;
+          var wv = v + (vnoise(u * 5, v * 5, 12) - 0.5) * 0.14;
+          var bd = 1e9;
+          for (var k = 0; k < free.length; k++) {
+            var dx = wu - free[k].at[0], dy = wv - free[k].at[1], dd = dx * dx + dy * dy;
+            if (dd < bd) { bd = dd; g = free[k].g; }
+          }
+        }
+        ZC[0][q] = g;
+        var Z = ZONES[g];
+        var kd = (i % PERIOD === 0 || j % PERIOD === 0) ? 1 : 0;
+        // becos construídos por cima: o labirinto é o que sobrou da malha
+        if (kd === 1 && Z.clutter && hash2(i, j, 57) < Z.clutter) kd = 0;
+        if (g === gi.porto && inPit(i, j)) kd = 3;
+        if (i >= 19 && i <= 23 && j >= 37 && j <= 41) kd = 4;   // A Praça Limpa
+        K[0][q] = kd;
+      }
+    }
+  })();
+
+  // --- camadas enterradas: câmaras e túneis escavados na rocha ---
+  function room(L, g, i0, j0, w, h) {
+    for (var j = j0; j < j0 + h; j++) for (var i = i0; i < i0 + w; i++) { K[L][at(i, j)] = 1; ZC[L][at(i, j)] = g; }
+  }
+  function cavern(L, g, ci, cj, r) {
+    for (var j = cj - r; j <= cj + r; j++) for (var i = ci - r; i <= ci + r; i++) {
+      if (i < 0 || j < 0 || i >= N || j >= N) continue;
+      var d = Math.sqrt((i - ci) * (i - ci) + (j - cj) * (j - cj));
+      if (d <= r - 0.3 + (hash2(i, j, 5) - 0.5) * 1.2 && K[L][at(i, j)] === 0) { K[L][at(i, j)] = 1; ZC[L][at(i, j)] = g; }
+    }
+  }
+  // Túneis só cortam rocha, então as câmaras escavadas antes mantêm a própria zona.
+  function carve(L, g, pts, w, wob) {
+    for (var p = 0; p < pts.length - 1; p++) {
+      var a = pts[p], b = pts[p + 1];
+      var len = Math.max(Math.abs(b[0] - a[0]), Math.abs(b[1] - a[1]));
+      var steps = Math.max(1, len * 2);
+      var nx = -(b[1] - a[1]), ny = b[0] - a[0], nl = Math.sqrt(nx * nx + ny * ny) || 1;
+      for (var s = 0; s <= steps; s++) {
+        var t = s / steps;
+        var off = wob ? Math.sin(t * Math.PI) * (vnoise(t * len * 0.3, p * 3.1 + g, 33) - 0.5) * wob * 2 : 0;
+        var x = Math.round(lerp(a[0], b[0], t) + nx / nl * off), y = Math.round(lerp(a[1], b[1], t) + ny / nl * off);
+        for (var dy = 0; dy < w; dy++) for (var dx = 0; dx < w; dx++) {
+          var i = x + dx, j = y + dy;
+          if (i < 1 || j < 1 || i >= N - 1 || j >= N - 1) continue;
+          if (K[L][at(i, j)] === 0) { K[L][at(i, j)] = 2; ZC[L][at(i, j)] = g; }
+        }
+      }
+    }
+  }
+  (function () {
+    if (gi.hangares != null) {
+      var hl = ZONES[gi.hangares].L;
+      HANGARS.forEach(function (h) { room(hl, gi.hangares, h[0], h[1], HW, HH); });
+      room(hl, gi.hangares, 53, 24, 2, 26);
+    }
+    var buried = ZONES.filter(function (Z) { return Z.L > 0; });
+    buried.forEach(function (Z) { (Z.rooms || []).forEach(function (r) { room(Z.L, Z.g, r[0], r[1], r[2], r[3]); }); });
+    buried.forEach(function (Z) { (Z.caverns || []).forEach(function (c) { cavern(Z.L, Z.g, c[0], c[1], c[2]); }); });
+    buried.forEach(function (Z) { (Z.tunnels || []).forEach(function (t) { carve(Z.L, Z.g, t, Z.tw || 1, Z.wob || 0); }); });
+  })();
+
+  // ----- three.js -----
+  var stage = $("stage"), canvas = $("gl");
+  var bgColor = new THREE.Color(getComputedStyle(document.documentElement).getPropertyValue("--bg").trim() || "#070b12");
+  var renderer = new THREE.WebGLRenderer({ canvas: canvas, antialias: true });
+  renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
+  renderer.shadowMap.enabled = true;
+  renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+  var scene = new THREE.Scene();
+  scene.background = bgColor;
+  scene.fog = new THREE.FogExp2(bgColor.getHex(), 0.0038);
+  var camera = new THREE.PerspectiveCamera(42, 1, 1, 1600);
+  var HOME = { pos: new THREE.Vector3(105, 92, 118), target: new THREE.Vector3(0, 4, 0) };
+  var HOME_ALL = { pos: new THREE.Vector3(178, 70, 205), target: new THREE.Vector3(0, -GAP, 0) };
+  camera.position.copy(HOME.pos);
+  var controls = new THREE.OrbitControls(camera, canvas);
+  controls.enableDamping = true;
+  controls.dampingFactor = 0.08;
+  controls.target.copy(HOME.target);
+  controls.minDistance = 22;
+  controls.maxDistance = 280;
+  controls.maxPolarAngle = 1.4;
+  controls.screenSpacePanning = false;
+
+  scene.add(new THREE.HemisphereLight(0x9db8e0, 0x1a1f2b, 0.75));
+  var sun = new THREE.DirectionalLight(0xffe6c4, 0.95);
+  sun.position.set(-70, 130, 60);
+  sun.castShadow = true;
+  sun.shadow.mapSize.set(2048, 2048);
+  var sc = sun.shadow.camera;
+  sc.left = -100; sc.right = 100; sc.top = 100; sc.bottom = -100; sc.near = 20; sc.far = 400;
+  sun.shadow.bias = -0.0006;
+  scene.add(sun);
+
+  // um avental escuro em volta do mapa, só nas vistas de camada única
+  var apron = new THREE.Mesh(new THREE.PlaneGeometry(1200, 1200), new THREE.MeshBasicMaterial({ color: 0x05080d }));
+  apron.rotation.x = -Math.PI / 2;
+  apron.position.y = -2.2;
+  scene.add(apron);
+
+  var tileGeo = new THREE.BoxGeometry(CELL, 0.3, CELL);
+  tileGeo.translate(0, -0.15, 0);
+  var boxGeo = new THREE.BoxGeometry(1, 1, 1);
+  boxGeo.translate(0, 0.5, 0);
+
+  // ----- construção das camadas -----
+  var dummy = new THREE.Object3D();
+  var white = new THREE.Color(0xffffff);
+  var accent = new THREE.Color(0xf2b544);
+  var zColor = ZONES.map(function (Z) { return new THREE.Color(Z.color); });
+  var stats = ZONES.map(function () { return { n: 0, sum: 0, max: 0, cx: 0, cz: 0, cells: 0 }; });
+  var groups = [], T = [], BL = [], pickables = [];
+  var ROCK = [null, new THREE.Color(0x221f1c), new THREE.Color(0x10141f)];
+  var rng = mulberry32(CITY.seed);
+
+  function block(L, g, x, z, w, d, h, base, y, isBuilding) {
+    BL[L].push({ g: g, x: x, y: y || 0, z: z, w: w, d: d, h: h, base: base });
+    if (isBuilding) { var s = stats[g]; s.n++; s.sum += h; if (h > s.max) s.max = h; }
+  }
+
+  function buildSurface() {
+    var L = 0, i, j;
+    for (j = 0; j < N; j++) {
+      for (i = 0; i < N; i++) {
+        var q = at(i, j), g = ZC[L][q], kd = K[L][q];
+        if (g < 0 || reserved[q]) continue;
+        var Z = ZONES[g], x = cellX(i), z = cellX(j);
+        if (kd === 1) {
+          // passarela suspensa sobre a rua, nunca sobre um cruzamento
+          var ns = i % PERIOD === 0, ew = j % PERIOD === 0;
+          if (Z.bridge && ns !== ew && hash2(i, j, 91) < Z.bridge) {
+            block(L, g, x, z, ns ? CELL * 1.5 : 0.5, ns ? 0.5 : CELL * 1.5, 0.22, zColor[g].clone().multiplyScalar(0.5), 1.6 + hash2(i, j, 92) * 1.6);
+          }
+          continue;
+        }
+        if (kd !== 0) continue;
+        if (rng() > Z.density) continue;
+        var imp = Z.style === "imperial";
+        var blockR = hash2(Math.floor(i / PERIOD), Math.floor(j / PERIOD), CITY.seed);
+        var t = imp ? blockR : 0.55 * blockR + 0.45 * rng();
+        var h = lerp(Z.h[0], Z.h[1], t);
+        if (rng() < Z.tower) h *= 1.3 + rng() * 0.3;
+        h = Math.min(h, MAX_H);
+        var w = imp ? CELL * 0.82 : CELL * (0.58 + rng() * 0.36), d = imp ? CELL * 0.82 : CELL * (0.58 + rng() * 0.36);
+        var lum = imp ? 0.85 : 0.5 + 0.55 * Math.min(1, (h - Z.h[0]) / Math.max(1, Z.h[1] - Z.h[0]));
+        block(L, g, imp ? x : x + (rng() - 0.5) * (CELL - w) * 0.5, imp ? z : z + (rng() - 0.5) * (CELL - d) * 0.5,
+              w, d, h, zColor[g].clone().multiplyScalar(lum * 0.62), 0, true);
+      }
+    }
+    LANDMARKS.forEach(function (m) {
+      var g = gi[m[0]], w = m[3] * CELL, d = m[4] * CELL;
+      var x = cellX(m[1]) + (w - CELL) / 2, z = cellX(m[2]) + (d - CELL) / 2;
+      var c = zColor[g].clone().lerp(white, 0.3);
+      block(0, g, x, z, w * 0.94, d * 0.94, m[5], c, 0, true);
+      if (m[6]) block(0, g, x, z, 0.18, 0.18, m[6], c, m[5]);
+    });
+    // monumento na Praça Limpa
+    block(0, gi.limpo, cellX(21), cellX(39), 0.7, 0.7, 2.4, zColor[gi.limpo].clone().multiplyScalar(0.8));
+    // a fronteira fortificada do Distrito Imperial, com um portão por lado
+    var wc = zColor[gi.imperial].clone().multiplyScalar(0.55), lo = cellX(6) - CELL / 2, hi = cellX(30) + CELL / 2, lo2 = cellX(30) - CELL / 2, hi2 = cellX(54) + CELL / 2;
+    for (var c2 = 0; c2 < 25; c2++) {
+      if (c2 === 12) continue;
+      block(0, gi.imperial, cellX(6 + c2), lo2, CELL, 0.3, 1.5, wc);
+      block(0, gi.imperial, cellX(6 + c2), hi2, CELL, 0.3, 1.5, wc);
+      block(0, gi.imperial, lo, cellX(30 + c2), 0.3, CELL, 1.5, wc);
+      block(0, gi.imperial, hi, cellX(30 + c2), 0.3, CELL, 1.5, wc);
+    }
+  }
+
+  function buildBuried(L) {
+    var i, j, k;
+    var hangarsHere = gi.hangares != null && ZONES[gi.hangares].L === L;
+    for (j = 0; j < N; j++) {
+      for (i = 0; i < N; i++) {
+        var q = at(i, j), g = ZC[L][q], kd = K[L][q], x = cellX(i), z = cellX(j);
+        if (kd === 0) {
+          block(L, -1, x, z, CELL, CELL, 1.1 + vnoise(i * 0.35, j * 0.35, L * 7) * 0.9, ROCK[L].clone().multiplyScalar(0.8 + hash2(i, j, 3) * 0.45));
+        } else if (kd === 1 && !(hangarsHere && inPit(i, j)) && hash2(i, j, 21 + L) < 0.1) {
+          var s = 0.5 + hash2(i, j, 22) * 0.6;
+          block(L, g, x, z, s, s, 0.3 + hash2(i, j, 23) * 0.7, zColor[g].clone().multiplyScalar(0.7));
+        }
+      }
+    }
+    if (hangarsHere) {
+      for (k = 0; k < HANGARS.length; k++) {   // um casco por hangar; um deles fica vazio
+        var hx = cellX(HANGARS[k][0] + 3), hz = cellX(HANGARS[k][1] + 2.5);
+        if (k === CITY.flagship) { block(L, gi.hangares, hx, hz, 7, 4.2, 1.1, accent.clone().multiplyScalar(0.9)); block(L, gi.hangares, hx + 1.2, hz, 2, 2, 0.5, accent.clone(), 1.1); }
+        else if (k !== 2) block(L, gi.hangares, hx, hz, 5 + (k % 3), 3 + (k % 2), 0.8, zColor[gi.hangares].clone().multiplyScalar(0.55));
+      }
+    }
+    ZONES.forEach(function (Z) {
+      if (Z.L !== L) return;
+      (Z.props || []).forEach(function (p) {
+        block(L, Z.g, cellX(p[0]), cellX(p[1]), p[2], p[3], p[4], p[5] ? new THREE.Color(p[5]).multiplyScalar(0.85) : zColor[Z.g].clone().multiplyScalar(0.5));
+      });
+    });
+  }
+
+  for (var L = 0; L < NL; L++) {
+    var grp = new THREE.Group();
+    T.push([]); BL.push([]);
+    var tiles = new THREE.InstancedMesh(tileGeo, new THREE.MeshStandardMaterial({ roughness: 0.95, metalness: 0 }), N * N);
+    tiles.frustumCulled = false;
+    tiles.receiveShadow = L === 0;
+    for (var j = 0; j < N; j++) {
+      for (var i = 0; i < N; i++) {
+        var q = at(i, j), g = ZC[L][q], kd = K[L][q], base, y = 0;
+        if (g < 0) base = L === 0 ? new THREE.Color(0x14171c).multiplyScalar(0.75 + vnoise(i * 0.4, j * 0.4, 9) * 0.5) : ROCK[L].clone().multiplyScalar(0.5);
+        else if (L === 0) {
+          if (kd === 3) { base = new THREE.Color(0x020405); y = -1.6; }
+          else base = zColor[g].clone().multiplyScalar(kd === 1 ? 0.34 : kd === 4 ? 0.5 : 0.11);
+        } else base = zColor[g].clone().multiplyScalar(kd === 2 ? 0.8 : 0.5);
+        T[L].push({ g: g, base: base });
+        dummy.position.set(cellX(i), y, cellX(j));
+        dummy.scale.set(1, 1, 1);
+        dummy.updateMatrix();
+        tiles.setMatrixAt(q, dummy.matrix);
+        if (g >= 0) { var s0 = stats[g]; s0.cx += cellX(i); s0.cz += cellX(j); s0.cells++; }
+      }
+    }
+    if (L === 0) buildSurface(); else buildBuried(L);
+    var mesh = new THREE.InstancedMesh(boxGeo, new THREE.MeshStandardMaterial({ roughness: L === 0 ? 0.72 : 0.9, metalness: L === 0 ? 0.12 : 0.05 }), BL[L].length);
+    mesh.frustumCulled = false;
+    mesh.castShadow = L === 0;
+    mesh.receiveShadow = L === 0;
+    BL[L].forEach(function (b, k) {
+      dummy.position.set(b.x, b.y, b.z);
+      dummy.scale.set(b.w, b.h, b.d);
+      dummy.updateMatrix();
+      mesh.setMatrixAt(k, dummy.matrix);
+    });
+    tiles.userData = { L: L, arr: T[L] };
+    mesh.userData = { L: L, arr: BL[L] };
+    grp.add(tiles); grp.add(mesh);
+    grp.userData = { tiles: tiles, blocks: mesh };
+    pickables.push(tiles, mesh);
+    groups.push(grp);
+    scene.add(grp);
+  }
+  ZONES.forEach(function (Z, g) {
+    var s = stats[g];
+    s.cx /= Math.max(1, s.cells); s.cz /= Math.max(1, s.cells);
+    if (Z.labelAt) { s.cx = cellX(Z.labelAt[0]); s.cz = cellX(Z.labelAt[1]); }
+  });
+
+  // colares dos eixos em cada camada que tocam, e as ligações que aparecem na vista empilhada
+  var links = new THREE.Group();
+  scene.add(links);
+  (function () {
+    var ringGeo = new THREE.CylinderGeometry(0.85, 0.85, 0.3, 20);
+    var ringMat = new THREE.MeshBasicMaterial({ color: 0xf2b544 });
+    var linkMat = new THREE.MeshBasicMaterial({ color: 0xf2b544, transparent: true, opacity: 0.5, depthWrite: false });
+    var pitMat = new THREE.MeshBasicMaterial({ color: 0x39b8a8, transparent: true, opacity: 0.32, depthWrite: false });
+    function link(x, z, a, b, r, mat) {
+      var m = new THREE.Mesh(new THREE.CylinderGeometry(r, r, (b - a) * GAP, 10), mat);
+      m.position.set(x, -(a + b) / 2 * GAP, z);
+      links.add(m);
+    }
+    SHAFTS.forEach(function (s) {
+      for (var l = s.a; l <= s.b; l++) {
+        var r = new THREE.Mesh(ringGeo, ringMat);
+        r.position.set(cellX(s.i), 0.2, cellX(s.j));
+        groups[l].add(r);
+      }
+      link(cellX(s.i), cellX(s.j), s.a, s.b, 0.3, linkMat);
+    });
+    if (gi.hangares != null) HANGARS.forEach(function (h) { link(cellX(h[0] + 3), cellX(h[1] + 2.5), 0, ZONES[gi.hangares].L, 1.6, pitMat); });
+  })();
+
+  // ----- estado de vista / seleção / hover -----
+  var view = 0;            // índice de camada, ou "all"
+  var sel = -1, hov = -1;
+  var tmpC = new THREE.Color();
+  function shown(L) { return view === "all" || view === L; }
+  function shade(base, g) {
+    tmpC.copy(base);
+    if (sel >= 0) {
+      if (g === sel) tmpC.lerp(white, 0.22);
+      else tmpC.multiplyScalar(0.42);
+    }
+    if (g >= 0 && g === hov && g !== sel) tmpC.lerp(white, 0.2);
+    return tmpC;
+  }
+  function refreshColors() {
+    for (var L = 0; L < NL; L++) {
+      var tm = groups[L].userData.tiles, bm = groups[L].userData.blocks, k;
+      for (k = 0; k < T[L].length; k++) tm.setColorAt(k, shade(T[L][k].base, T[L][k].g));
+      for (k = 0; k < BL[L].length; k++) bm.setColorAt(k, shade(BL[L][k].base, BL[L][k].g));
+      tm.instanceColor.needsUpdate = true;
+      bm.instanceColor.needsUpdate = true;
+    }
+  }
+
+  // ----- DOM -----
+  function el(tag, cls, text) {
+    var e = document.createElement(tag);
+    if (cls) e.className = cls;
+    if (text != null) e.textContent = text;
+    return e;
+  }
+  function meters(u) { return Math.round(u * M_PER_UNIT); }
+  function hectares(cells) { return (cells / 100).toFixed(1).replace(".", ","); }
+  function toggle(g) { select(sel === g ? -1 : g, true); }
+
+  // ----- rótulos -----
+  var labelLayer = $("labels");
+  var labelsOn = true, sitesOn = true;
+  var zoneLabels = ZONES.map(function (Z, g) {
+    var e = el("div", "dlabel");
+    e.tabIndex = 0;
+    e.setAttribute("role", "button");
+    var sw = el("i"); sw.style.background = Z.color;
+    e.appendChild(sw);
+    e.appendChild(document.createTextNode(Z.name));
+    e.addEventListener("click", function () { toggle(g); });
+    e.addEventListener("keydown", function (ev) { if (ev.key === "Enter" || ev.key === " ") { ev.preventDefault(); toggle(g); } });
+    labelLayer.appendChild(e);
+    return e;
+  });
+  var siteLabels = [];
+  ZONES.forEach(function (Z, g) {
+    Z.sites.forEach(function (S) {
+      var e = el("div", "slabel", S.name);
+      e.addEventListener("click", function () { select(g, true); });
+      labelLayer.appendChild(e);
+      siteLabels.push({ el: e, g: g, x: cellX(S.at[0]), z: cellX(S.at[1]) });
+    });
+  });
+  var proj = new THREE.Vector3();
+  function place(e, x, y, z, dy) {
+    proj.set(x, y, z).project(camera);
+    if (proj.z > 1 || proj.z < -1) { e.style.display = "none"; return; }
+    e.style.display = "";
+    var px = (proj.x * 0.5 + 0.5) * stage.clientWidth, py = (-proj.y * 0.5 + 0.5) * stage.clientHeight;
+    e.style.transform = "translate(" + Math.round(px - e.offsetWidth / 2) + "px," + Math.round(py - dy) + "px)";
+  }
+  function updateLabels() {
+    var k;
+    for (k = 0; k < zoneLabels.length; k++) {
+      var Z = ZONES[k], e = zoneLabels[k];
+      if (!labelsOn || !shown(Z.L)) { e.style.display = "none"; continue; }
+      place(e, stats[k].cx, groups[Z.L].position.y + (Z.L === 0 ? stats[k].max * 0.55 + 4 : 5), stats[k].cz, 12);
+      e.dataset.on = (k === sel) ? "true" : "false";
+    }
+    for (k = 0; k < siteLabels.length; k++) {
+      var S = siteLabels[k], SL = ZONES[S.g].L;
+      // na vista empilhada só a zona selecionada mostra seus locais, para continuar legível
+      if (!sitesOn || !shown(SL) || (view === "all" && S.g !== sel)) { S.el.style.display = "none"; continue; }
+      place(S.el, S.x, groups[SL].position.y + (SL === 0 ? 4.5 : 2.5), S.z, 8);
+    }
+  }
+
+  // ----- barra lateral -----
+  var layerBtns = [];
+  (function () {
+    var box = $("layers");
+    LAYERS.map(function (Ly, L) { return { v: L, name: Ly.name, sub: Ly.sub }; })
+      .concat([{ v: "all", name: "Todas as camadas", sub: "Corte empilhado" }])
+      .forEach(function (o) {
+        var b = el("button", "layer", o.name);
+        b.type = "button";
+        b.appendChild(el("small", null, o.sub));
+        b.addEventListener("click", function () { setView(o.v, true); });
+        box.appendChild(b);
+        layerBtns.push({ v: o.v, el: b });
+      });
+  })();
+
+  var listEl = $("list");
+  var rowEls = [];
+  function buildList() {
+    listEl.replaceChildren();
+    rowEls = [];
+    LAYERS.forEach(function (Ly, L) {
+      if (!shown(L)) return;
+      if (view === "all") listEl.appendChild(el("h5", null, Ly.name));
+      if (!Ly.zones.length) listEl.appendChild(el("p", null, "Nada mapeado."));
+      Ly.zones.forEach(function (Z) {
+        var b = el("button", "row");
+        b.type = "button";
+        var sw = el("i"); sw.style.background = Z.color;
+        b.appendChild(sw);
+        b.appendChild(el("span", null, Z.name));
+        b.appendChild(el("em", null, L === 0 ? "até " + meters(stats[Z.g].max) + " m" : hectares(stats[Z.g].cells) + " ha"));
+        b.addEventListener("click", function () { toggle(Z.g); });
+        listEl.appendChild(b);
+        rowEls.push({ g: Z.g, el: b });
+      });
+    });
+    refreshList();
+  }
+  function refreshList() {
+    rowEls.forEach(function (r) { r.el.setAttribute("aria-pressed", r.g === sel ? "true" : "false"); });
+  }
+
+  var dossier = $("dossier");
+  function stat(v, l) { var s = el("div", "stat"); s.appendChild(el("b", null, v)); s.appendChild(el("span", null, l)); return s; }
+  function statRow(items) { var g = el("div", "stats"); items.forEach(function (it) { g.appendChild(stat(it[0], it[1])); }); return g; }
+  function subList(title, items) {
+    var s = el("div", "sub"); s.appendChild(el("h4", null, title));
+    var ul = el("ul"); items.forEach(function (t) { ul.appendChild(el("li", null, t)); }); s.appendChild(ul); return s;
+  }
+  function renderDossier() {
+    dossier.replaceChildren();
+    if (sel < 0) {
+      var zs = ZONES.filter(function (Z) { return shown(Z.L); });
+      var sites = zs.reduce(function (n, Z) { return n + Z.sites.length; }, 0);
+      if (view === "all") {
+        dossier.appendChild(el("h3", null, CITY.name + ", em corte"));
+        dossier.appendChild(el("p", null, CITY.section));
+        dossier.appendChild(statRow([[String(NL), "Camadas"], [String(zs.length), "Zonas"], [String(sites), "Locais"]]));
+      } else {
+        var Ly = LAYERS[view];
+        dossier.appendChild(el("div", "kind", "Nível " + Ly.level));
+        dossier.appendChild(el("h3", null, Ly.name));
+        dossier.appendChild(el("p", null, Ly.blurb));
+        var ways = SHAFTS.filter(function (s) { return s.a <= view && s.b >= view; }).length
+          + (gi.hangares != null && ZONES[gi.hangares].L === view ? HANGARS.length : 0);
+        var third = view === 0 ? [CITY.maxHeightM + " m", "Altura máxima"] : [ways ? String(ways) : "?", "Acessos"];
+        dossier.appendChild(statRow([[String(zs.length), "Zonas"], [String(sites), "Locais"], third]));
+      }
+      return;
+    }
+    var Z = ZONES[sel], s = stats[sel];
+    var kind = el("div", "kind"); var sw = el("i"); sw.style.background = Z.color; kind.appendChild(sw);
+    kind.appendChild(document.createTextNode(LAYERS[Z.L].name + " · " + Z.kind));
+    dossier.appendChild(kind);
+    dossier.appendChild(el("h3", null, Z.name));
+    if (Z.canon === false) dossier.appendChild(el("div", "chip", "Traçado é interpretação do mapa, não fixado pela lore"));
+    dossier.appendChild(el("p", null, Z.blurb));
+    dossier.appendChild(el("p", "ctl", "Controle: " + Z.control));
+    dossier.appendChild(statRow(Z.L === 0
+      ? [[String(s.n), "Construções"], [meters(s.sum / Math.max(1, s.n)) + " m", "Altura média"], [meters(s.max) + " m", "Mais alta"]]
+      : [[hectares(s.cells) + " ha", "Área"], [String(Z.sites.length), "Locais"], [LAYERS[Z.L].level, "Nível"]]));
+    var pips = el("div", "pips"); pips.appendChild(document.createTextNode("Ameaça "));
+    for (var p = 1; p <= 5; p++) pips.appendChild(el("span", "p" + (p <= Z.threat ? " on" : "")));
+    dossier.appendChild(pips);
+    if (Z.sites.length) {
+      var sb = el("div", "sub"); sb.appendChild(el("h4", null, "Locais"));
+      var ul = el("ul");
+      Z.sites.forEach(function (S) { var li = el("li"); li.appendChild(el("b", null, S.name)); li.appendChild(document.createTextNode(". " + S.note)); ul.appendChild(li); });
+      sb.appendChild(ul); dossier.appendChild(sb);
+    }
+    if (Z.hooks.length) dossier.appendChild(subList("Ganchos de trama", Z.hooks));
+    if (Z.npcs.length) dossier.appendChild(subList(CITY.npcLabel, Z.npcs));
+  }
+
+  // ----- voos de câmera -----
+  var flight = null;
+  function flyTo(pos, target, ms) {
+    flight = { t0: performance.now(), ms: ms || 900, p0: camera.position.clone(), t0v: controls.target.clone(), p1: pos, t1: target };
+  }
+  function home() { var H = view === "all" ? HOME_ALL : HOME; flyTo(H.pos.clone(), H.target.clone()); }
+
+  function setView(v, fly) {
+    view = v;
+    for (var L = 0; L < NL; L++) {
+      groups[L].visible = shown(L);
+      groups[L].position.y = v === "all" ? -L * GAP : 0;
+    }
+    links.visible = v === "all";
+    apron.visible = v !== "all";
+    scene.fog.density = v === "all" ? 0.0015 : 0.0038;
+    controls.maxDistance = v === "all" ? 460 : 280;
+    if (sel >= 0 && !shown(ZONES[sel].L)) sel = -1;
+    hov = -1;
+    layerBtns.forEach(function (b) { b.el.setAttribute("aria-pressed", b.v === v ? "true" : "false"); });
+    $("compass").textContent = "N ↑ · " + CITY.name + " · " + (v === "all" ? "todas as camadas" : LAYERS[v].name);
+    refreshColors(); buildList(); renderDossier();
+    if (fly) home();
+  }
+
+  function select(g, fly) {
+    if (g >= 0 && !shown(ZONES[g].L)) setView(ZONES[g].L, false);
+    sel = g;
+    refreshColors(); refreshList(); renderDossier();
+    if (!fly) return;
+    if (g < 0) { home(); return; }
+    var target = new THREE.Vector3(stats[g].cx, groups[ZONES[g].L].position.y + 4, stats[g].cz);
+    var dir = camera.position.clone().sub(controls.target); dir.y = Math.max(dir.y, dir.length() * 0.5); dir.setLength(view === "all" ? 110 : 78);
+    flyTo(target.clone().add(dir), target);
+  }
+
+  // ----- seleção com o ponteiro -----
+  var ray = new THREE.Raycaster(), ndc = new THREE.Vector2();
+  var pointer = { x: 0, y: 0, inside: false, dirty: false, downX: 0, downY: 0 };
+  var tip = $("tip");
+  function pick() {
+    var r = canvas.getBoundingClientRect();
+    ndc.set(((pointer.x - r.left) / r.width) * 2 - 1, -((pointer.y - r.top) / r.height) * 2 + 1);
+    ray.setFromCamera(ndc, camera);
+    var hits = ray.intersectObjects(pickables.filter(function (m) { return shown(m.userData.L); }), false);
+    if (!hits.length) return -1;
+    return hits[0].object.userData.arr[hits[0].instanceId].g;
+  }
+  function updateHover() {
+    pointer.dirty = false;
+    var g = pointer.inside ? pick() : -1;
+    if (g !== hov) { hov = g; refreshColors(); }
+    if (g >= 0) {
+      var r = stage.getBoundingClientRect();
+      tip.hidden = false;
+      tip.replaceChildren(document.createTextNode(ZONES[g].name));
+      tip.appendChild(el("small", null, LAYERS[ZONES[g].L].name + " · " + ZONES[g].kind));
+      tip.style.left = (pointer.x - r.left) + "px"; tip.style.top = (pointer.y - r.top) + "px";
+      canvas.style.cursor = "pointer";
+    } else { tip.hidden = true; canvas.style.cursor = ""; }
+  }
+  canvas.addEventListener("pointermove", function (e) { pointer.x = e.clientX; pointer.y = e.clientY; pointer.inside = true; pointer.dirty = true; });
+  canvas.addEventListener("pointerleave", function () { pointer.inside = false; pointer.dirty = true; });
+  canvas.addEventListener("pointerdown", function (e) { pointer.downX = e.clientX; pointer.downY = e.clientY; flight = null; });
+  canvas.addEventListener("pointerup", function (e) {
+    if (Math.abs(e.clientX - pointer.downX) + Math.abs(e.clientY - pointer.downY) > 8) return;
+    pointer.x = e.clientX; pointer.y = e.clientY;
+    var g = pick();
+    if (g >= 0) toggle(g);
+    else if (sel >= 0) select(-1, false);
+  });
+
+  // ----- controles -----
+  $("reset").addEventListener("click", function () { select(-1, false); home(); });
+  $("showLabels").addEventListener("change", function (e) { labelsOn = e.target.checked; });
+  $("showSites").addEventListener("change", function (e) { sitesOn = e.target.checked; });
+  document.title = CITY.title;
+  $("eyebrow").textContent = CITY.eyebrow;
+  $("cityName").textContent = CITY.name;
+  $("lede").textContent = CITY.lede;
+  $("scale").textContent = "Mapa fixo. 1 célula = 10 m, 1 quadra = 60 m, a cidade tem cerca de " + (N * 10) + " m de lado a lado. O espaçamento entre camadas na vista empilhada não está em escala.";
+
+  // ----- redimensionamento + laço -----
+  function resize() {
+    var w = Math.max(1, stage.clientWidth), h = Math.max(1, stage.clientHeight);
+    renderer.setSize(w, h, false);
+    camera.aspect = w / h;
+    camera.updateProjectionMatrix();
+  }
+  if (window.ResizeObserver) new ResizeObserver(resize).observe(stage); else window.addEventListener("resize", resize);
+
+  var LIM = (N * CELL) / 2;
+  var reduce = window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+  function frame(now) {
+    requestAnimationFrame(frame);
+    if (flight) {
+      var t = Math.min(1, (now - flight.t0) / (reduce ? 1 : flight.ms));
+      var e = t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2;
+      camera.position.lerpVectors(flight.p0, flight.p1, e);
+      controls.target.lerpVectors(flight.t0v, flight.t1, e);
+      if (t >= 1) flight = null;
+    }
+    controls.target.x = Math.max(-LIM, Math.min(LIM, controls.target.x));
+    controls.target.z = Math.max(-LIM, Math.min(LIM, controls.target.z));
+    controls.update();
+    if (pointer.dirty) updateHover();
+    updateLabels();
+    renderer.render(scene, camera);
+  }
+
+  resize();
+  setView(0, false);
+  requestAnimationFrame(frame);
+})();
+</script>
+
+</body>
+</html>
