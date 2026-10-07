@@ -56,6 +56,17 @@ body { margin: 0; background: var(--bg); color: var(--fg); font: 14px/1.5 var(--
   position: absolute; left: 16px; bottom: 14px; right: 16px; pointer-events: none;
   font: 400 11px/1.4 var(--mono); color: var(--muted); letter-spacing: .02em;
 }
+.lang {
+  position: absolute; left: 16px; top: 10px; z-index: 4; display: flex;
+  border: 1px solid var(--line); background: rgba(7, 11, 18, .78);
+}
+.lang button {
+  background: transparent; color: var(--muted); border: 0; padding: 7px 11px; cursor: pointer;
+  font: 600 11px/1 var(--display); letter-spacing: .12em;
+}
+.lang button + button { border-left: 1px solid var(--line); }
+.lang button:hover { color: var(--fg); }
+.lang button[aria-pressed="true"] { background: var(--accent); color: var(--accent-ink); }
 .compass {
   position: absolute; right: 16px; top: 14px; pointer-events: none;
   font: 500 11px/1 var(--mono); color: var(--muted); letter-spacing: .08em; text-transform: uppercase;
@@ -131,11 +142,15 @@ button:focus-visible, input:focus-visible, .dlabel:focus-visible { outline: 2px 
 
 <div class="app">
   <div class="stage" id="stage">
-    <canvas id="gl" aria-label="Mapa 3D de Ossei. Arraste para orbitar, role para aproximar, arraste com o botão direito para mover."></canvas>
+    <canvas id="gl" data-i18n-aria="canvas" aria-label="Mapa 3D de Ossei. Arraste para orbitar, role para aproximar, arraste com o botão direito para mover."></canvas>
     <div class="label-layer" id="labels"></div>
     <div class="tip" id="tip" hidden></div>
+    <div class="lang" id="lang" role="group" aria-label="Idioma / Language">
+      <button type="button" data-lang="pt" lang="pt-BR">PT-BR</button>
+      <button type="button" data-lang="en" lang="en">ENG</button>
+    </div>
     <div class="compass" id="compass"></div>
-    <div class="hint">Arraste para orbitar &middot; role para aproximar &middot; botão direito para mover &middot; clique em uma zona</div>
+    <div class="hint" data-i18n="hint">Arraste para orbitar &middot; role para aproximar &middot; botão direito para mover &middot; clique em uma zona</div>
   </div>
   <aside>
     <div class="head">
@@ -144,23 +159,23 @@ button:focus-visible, input:focus-visible, .dlabel:focus-visible { outline: 2px 
       <p class="lede" id="lede"></p>
     </div>
     <section>
-      <h2>Camada</h2>
+      <h2 data-i18n="layer">Camada</h2>
       <div class="layers" id="layers"></div>
     </section>
     <section>
-      <h2>Dossiê</h2>
+      <h2 data-i18n="dossier">Dossiê</h2>
       <div class="dossier" id="dossier" aria-live="polite"></div>
     </section>
     <section>
-      <h2>Zonas</h2>
+      <h2 data-i18n="zones">Zonas</h2>
       <div class="list" id="list"></div>
     </section>
     <section>
-      <h2>Visualização</h2>
+      <h2 data-i18n="display">Visualização</h2>
       <div class="view">
-        <label class="check"><input id="showLabels" type="checkbox" checked> Mostrar rótulos das zonas</label>
-        <label class="check"><input id="showSites" type="checkbox" checked> Mostrar locais nomeados</label>
-        <button class="btn" id="reset" type="button">Restaurar vista</button>
+        <label class="check"><input id="showLabels" type="checkbox" checked> <span data-i18n="showLabels">Mostrar rótulos das zonas</span></label>
+        <label class="check"><input id="showSites" type="checkbox" checked> <span data-i18n="showSites">Mostrar locais nomeados</span></label>
+        <button class="btn" id="reset" type="button" data-i18n="reset">Restaurar vista</button>
         <div class="scale" id="scale"></div>
       </div>
     </section>
@@ -265,6 +280,126 @@ button:focus-visible, input:focus-visible, .dlabel:focus-visible { outline: 2px 
       zones: [] }
   ];
   /* DATA:END */
+
+  /* ------------------------------------------------------------------
+     IDIOMAS — o texto acima é o português. EN traz a interface e, em DATA_EN,
+     os textos das zonas por id (locais na mesma ordem de "sites").
+     ------------------------------------------------------------------ */
+  var UI = {
+    pt: {
+      canvas: "Mapa 3D de Ossei. Arraste para orbitar, role para aproximar, arraste com o botão direito para mover.",
+      hint: "Arraste para orbitar · role para aproximar · botão direito para mover · clique em uma zona",
+      layer: "Camada", dossier: "Dossiê", zones: "Zonas", display: "Visualização",
+      showLabels: "Mostrar rótulos das zonas", showSites: "Mostrar locais nomeados", reset: "Restaurar vista",
+      allLayers: "Todas as camadas", allLayersSub: "Corte empilhado", allLayersLower: "todas as camadas",
+      nothing: "Nada mapeado.", upTo: "até ", inSection: ", em corte",
+      layers: "Camadas", sites: "Locais", maxHeight: "Altura máxima", access: "Acessos", level: "Nível ",
+      levelStat: "Nível", notCanon: "Traçado é interpretação do mapa, não fixado pela lore", control: "Controle: ",
+      buildings: "Construções", avgHeight: "Altura média", tallest: "Mais alta", area: "Área", threat: "Ameaça ",
+      hooks: "Ganchos de trama",
+      scale: function (m) { return "Mapa fixo. 1 célula = 10 m, 1 quadra = 60 m, a cidade tem cerca de " + m + " m de lado a lado. O espaçamento entre camadas na vista empilhada não está em escala."; }
+    },
+    en: {
+      canvas: "3D map of Ossei. Drag to orbit, scroll to zoom, right-drag to pan.",
+      hint: "Drag to orbit · scroll to zoom · right-click to pan · click a zone",
+      layer: "Layer", dossier: "Dossier", zones: "Zones", display: "Display",
+      showLabels: "Show zone labels", showSites: "Show named places", reset: "Reset view",
+      allLayers: "All layers", allLayersSub: "Stacked cross-section", allLayersLower: "all layers",
+      nothing: "Nothing mapped.", upTo: "up to ", inSection: ", in cross-section",
+      layers: "Layers", sites: "Places", maxHeight: "Max height", access: "Access points", level: "Level ",
+      levelStat: "Level", notCanon: "Layout is a reading of the map, not fixed by the lore", control: "Control: ",
+      buildings: "Buildings", avgHeight: "Average height", tallest: "Tallest", area: "Area", threat: "Threat ",
+      hooks: "Plot hooks",
+      scale: function (m) { return "Fixed map. 1 cell = 10 m, 1 block = 60 m, the city is about " + m + " m across. Spacing between layers in the stacked view is not to scale."; }
+    }
+  };
+
+  var DATA_EN = {
+    city: {
+      title: "Ossei — City Map",
+      eyebrow: "Vethara · City map",
+      lede: "A crooked vertical city, stacked on the shafts and pillars of an old Republic mining station.",
+      section: "The city in cross-section: the streets on top, the old station's foundations just below and, beneath them, what nobody has mapped. The teal columns are the hangar shafts of Low Port.",
+      npcLabel: "Known figures"
+    },
+    layers: {
+      surface: { name: "Surface", sub: "Streets and stacks",
+        blurb: "Street level and everything piled on top of it. Acid rain, 180 km/h storms and purple lightning keep Ossei low: nothing rises past 60 m, and the only straight lines belong to the Empire." },
+      under: { name: "Underground", sub: "Beneath the streets",
+        blurb: "The old station's foundations, just below the streets. The Low Port hangars are the only part anyone knows. They say old tunnels run under the whole city, but those who know the way don't draw maps." },
+      deep: { name: "The Depths", sub: "Below the foundations",
+        blurb: "Below the foundations, where the station actually mined. There is no map. Nobody on the surface claims to know what's left down there." }
+    },
+    zones: {
+      casco: { name: "Old Hull", kind: "Old quarter", control: "The Cavaeiros of Ossei",
+        blurb: "The city's oldest stacks, raised straight onto the old mining station's pillars. New scrap floors sit crooked on old foundations, and covered walkways join buildings that were never meant to touch. It smells of welding, droid oil and burnt caf.",
+        sites: [
+          { name: "Daan & Associates — Repairs", note: "A wide, low mechanic's shop at ground level. Charges less than it should. The sign loses a letter every season." },
+          { name: "The Golden Rust", note: "A cantina floored with rusted plating, lit by hanging plasma lanterns. Open from 14:00 to 03:00." }
+        ],
+        npcs: ["Prex \"Bolt\" Daan, mechanic", "Marreth, owner of the Golden Rust"] },
+      labirinto: { name: "Merchant Maze", kind: "Market and alleys", control: "Independent traders",
+        blurb: "Tight converging alleys, scrap markets and trading nooks under hanging catwalks, with low roofs running into one another. Puddles of acid rain steam on the ground. You can buy anything here, and lose sight of anyone." },
+      imperial: { name: "Imperial District", kind: "Fortified perimeter", control: "The Imperial Detachment",
+        blurb: "A walled island of Imperial geometry driven into a city of rust. Hated and feared in equal measure: you go in with your head down and pray to get out.",
+        sites: [
+          { name: "Imperial Consulate", note: "Three smooth-faced storeys on the fortified border, with the main relay antenna on top." }
+        ],
+        npcs: ["Lieutenant Daren Voss, garrison commander"] },
+      limpo: { name: "Clean District", kind: "Imperial core", control: "The Imperial Detachment",
+        blurb: "The only straight, lit and sterile piece of Ossei. Smooth floors, even white light, the smell of disinfectant, watched silence.",
+        sites: [
+          { name: "Imperial Depot", note: "A fortified customs warehouse with a relay antenna on the roof." },
+          { name: "The Clean Square & The Line", note: "A square of Imperial screens and banners, and the line beside it: permits, rations, safe-conducts, hours of waiting." }
+        ] },
+      porto: { name: "Low Port", kind: "Hangar mouths", control: "The Wind Guild",
+        blurb: "Seven hangar mouths cut into the foundations so ships can wait out the weather. Up here there's only a yard, low sheds and the Guild's toll. Every cargo that crosses the atmosphere passes through here, or pays.",
+        sites: [
+          { name: "Hangar Mouth 6", note: "One of the seven shafts." }
+        ] },
+      hangares: { name: "Low Port — Hangars", kind: "Seven hangars", control: "The Wind Guild",
+        blurb: "Seven deep hangars dug into Ossei's foundations to shelter freighters and fighters from the corrosive weather, lined up along a service corridor. The Guild's base, runway and customs.",
+        sites: [
+          { name: "Hangar 6", note: "One of the seven hangars." }
+        ] }
+    }
+  };
+
+  // guarda o português original para poder voltar a ele
+  var DATA_PT = { city: {}, layers: {}, zones: {} };
+  ["title", "eyebrow", "lede", "section", "npcLabel"].forEach(function (k) { DATA_PT.city[k] = CITY[k]; });
+  LAYERS.forEach(function (Ly) {
+    DATA_PT.layers[Ly.id] = { name: Ly.name, sub: Ly.sub, blurb: Ly.blurb };
+    Ly.zones.forEach(function (Z) {
+      DATA_PT.zones[Z.id] = { name: Z.name, kind: Z.kind, control: Z.control, blurb: Z.blurb, npcs: Z.npcs.slice(),
+        sites: Z.sites.map(function (S) { return { name: S.name, note: S.note }; }) };
+    });
+  });
+  function applyData(D) {
+    var pt = DATA_PT;
+    Object.keys(pt.city).forEach(function (k) { CITY[k] = (D.city[k] != null ? D.city : pt.city)[k]; });
+    LAYERS.forEach(function (Ly) {
+      var src = D.layers[Ly.id] || {}, base = pt.layers[Ly.id];
+      ["name", "sub", "blurb"].forEach(function (k) { Ly[k] = src[k] != null ? src[k] : base[k]; });
+      Ly.zones.forEach(function (Z) {
+        var zs = D.zones[Z.id] || {}, zb = pt.zones[Z.id];
+        ["name", "kind", "control", "blurb"].forEach(function (k) { Z[k] = zs[k] != null ? zs[k] : zb[k]; });
+        Z.npcs = (zs.npcs || zb.npcs).slice();
+        Z.sites.forEach(function (S, k) {
+          var ss = (zs.sites && zs.sites[k]) || zb.sites[k];
+          S.name = ss.name; S.note = ss.note;
+        });
+      });
+    });
+  }
+
+  var lang = "pt";
+  try { lang = localStorage.getItem("ossei-lang") || lang; } catch (e) {}
+  var qLang = /[?&]lang=(pt|en)\b/.exec(location.search);
+  if (qLang) lang = qLang[1];
+  if (!UI[lang]) lang = "pt";
+  function tr(k) { return UI[lang][k]; }
+  applyData(lang === "en" ? DATA_EN : DATA_PT);
 
   var $ = function (id) { return document.getElementById(id); };
   var PERIOD = CITY.blockSize + 1;
@@ -667,7 +802,7 @@ button:focus-visible, input:focus-visible, .dlabel:focus-visible { outline: 2px 
     e.setAttribute("role", "button");
     var sw = el("i"); sw.style.background = Z.color;
     e.appendChild(sw);
-    e.appendChild(document.createTextNode(Z.name));
+    e.appendChild(e.txt = document.createTextNode(Z.name));
     e.addEventListener("click", function () { toggle(g); });
     e.addEventListener("keydown", function (ev) { if (ev.key === "Enter" || ev.key === " ") { ev.preventDefault(); toggle(g); } });
     labelLayer.appendChild(e);
@@ -680,7 +815,7 @@ button:focus-visible, input:focus-visible, .dlabel:focus-visible { outline: 2px 
       var e = el("div", "slabel", S.name);
       e.addEventListener("click", function () { select(g, true); });
       labelLayer.appendChild(e);
-      siteLabels.push({ el: e, g: g, x: cellX(S.at[0]), z: cellX(S.at[1]) });
+      siteLabels.push({ el: e, g: g, s: S, x: cellX(S.at[0]), z: cellX(S.at[1]) });
     });
   });
   var proj = new THREE.Vector3();
@@ -709,19 +844,23 @@ button:focus-visible, input:focus-visible, .dlabel:focus-visible { outline: 2px 
 
   // ----- barra lateral -----
   var layerBtns = [];
-  (function () {
+  function buildLayerBtns() {
     var box = $("layers");
+    box.replaceChildren();
+    layerBtns = [];
     LAYERS.map(function (Ly, L) { return { v: L, name: Ly.name, sub: Ly.sub }; })
-      .concat([{ v: "all", name: "Todas as camadas", sub: "Corte empilhado" }])
+      .concat([{ v: "all", name: tr("allLayers"), sub: tr("allLayersSub") }])
       .forEach(function (o) {
         var b = el("button", "layer", o.name);
         b.type = "button";
         b.appendChild(el("small", null, o.sub));
+        b.setAttribute("aria-pressed", o.v === view ? "true" : "false");
         b.addEventListener("click", function () { setView(o.v, true); });
         box.appendChild(b);
         layerBtns.push({ v: o.v, el: b });
       });
-  })();
+  }
+  buildLayerBtns();
 
   var listEl = $("list");
   var rowEls = [];
@@ -731,14 +870,14 @@ button:focus-visible, input:focus-visible, .dlabel:focus-visible { outline: 2px 
     LAYERS.forEach(function (Ly, L) {
       if (!shown(L)) return;
       if (view === "all") listEl.appendChild(el("h5", null, Ly.name));
-      if (!Ly.zones.length) listEl.appendChild(el("p", null, "Nada mapeado."));
+      if (!Ly.zones.length) listEl.appendChild(el("p", null, tr("nothing")));
       Ly.zones.forEach(function (Z) {
         var b = el("button", "row");
         b.type = "button";
         var sw = el("i"); sw.style.background = Z.color;
         b.appendChild(sw);
         b.appendChild(el("span", null, Z.name));
-        b.appendChild(el("em", null, L === 0 ? "até " + meters(stats[Z.g].max) + " m" : hectares(stats[Z.g].cells) + " ha"));
+        b.appendChild(el("em", null, L === 0 ? tr("upTo") + meters(stats[Z.g].max) + " m" : hectares(stats[Z.g].cells) + " ha"));
         b.addEventListener("click", function () { toggle(Z.g); });
         listEl.appendChild(b);
         rowEls.push({ g: Z.g, el: b });
@@ -763,18 +902,18 @@ button:focus-visible, input:focus-visible, .dlabel:focus-visible { outline: 2px 
       var zs = ZONES.filter(function (Z) { return shown(Z.L); });
       var sites = zs.reduce(function (n, Z) { return n + Z.sites.length; }, 0);
       if (view === "all") {
-        dossier.appendChild(el("h3", null, CITY.name + ", em corte"));
+        dossier.appendChild(el("h3", null, CITY.name + tr("inSection")));
         dossier.appendChild(el("p", null, CITY.section));
-        dossier.appendChild(statRow([[String(NL), "Camadas"], [String(zs.length), "Zonas"], [String(sites), "Locais"]]));
+        dossier.appendChild(statRow([[String(NL), tr("layers")], [String(zs.length), tr("zones")], [String(sites), tr("sites")]]));
       } else {
         var Ly = LAYERS[view];
-        dossier.appendChild(el("div", "kind", "Nível " + Ly.level));
+        dossier.appendChild(el("div", "kind", tr("level") + Ly.level));
         dossier.appendChild(el("h3", null, Ly.name));
         dossier.appendChild(el("p", null, Ly.blurb));
         var ways = SHAFTS.filter(function (s) { return s.a <= view && s.b >= view; }).length
           + (gi.hangares != null && ZONES[gi.hangares].L === view ? HANGARS.length : 0);
-        var third = view === 0 ? [CITY.maxHeightM + " m", "Altura máxima"] : [ways ? String(ways) : "?", "Acessos"];
-        dossier.appendChild(statRow([[String(zs.length), "Zonas"], [String(sites), "Locais"], third]));
+        var third = view === 0 ? [CITY.maxHeightM + " m", tr("maxHeight")] : [ways ? String(ways) : "?", tr("access")];
+        dossier.appendChild(statRow([[String(zs.length), tr("zones")], [String(sites), tr("sites")], third]));
       }
       return;
     }
@@ -783,22 +922,22 @@ button:focus-visible, input:focus-visible, .dlabel:focus-visible { outline: 2px 
     kind.appendChild(document.createTextNode(LAYERS[Z.L].name + " · " + Z.kind));
     dossier.appendChild(kind);
     dossier.appendChild(el("h3", null, Z.name));
-    if (Z.canon === false) dossier.appendChild(el("div", "chip", "Traçado é interpretação do mapa, não fixado pela lore"));
+    if (Z.canon === false) dossier.appendChild(el("div", "chip", tr("notCanon")));
     dossier.appendChild(el("p", null, Z.blurb));
-    dossier.appendChild(el("p", "ctl", "Controle: " + Z.control));
+    dossier.appendChild(el("p", "ctl", tr("control") + Z.control));
     dossier.appendChild(statRow(Z.L === 0
-      ? [[String(s.n), "Construções"], [meters(s.sum / Math.max(1, s.n)) + " m", "Altura média"], [meters(s.max) + " m", "Mais alta"]]
-      : [[hectares(s.cells) + " ha", "Área"], [String(Z.sites.length), "Locais"], [LAYERS[Z.L].level, "Nível"]]));
-    var pips = el("div", "pips"); pips.appendChild(document.createTextNode("Ameaça "));
+      ? [[String(s.n), tr("buildings")], [meters(s.sum / Math.max(1, s.n)) + " m", tr("avgHeight")], [meters(s.max) + " m", tr("tallest")]]
+      : [[hectares(s.cells) + " ha", tr("area")], [String(Z.sites.length), tr("sites")], [LAYERS[Z.L].level, tr("levelStat")]]));
+    var pips = el("div", "pips"); pips.appendChild(document.createTextNode(tr("threat")));
     for (var p = 1; p <= 5; p++) pips.appendChild(el("span", "p" + (p <= Z.threat ? " on" : "")));
     dossier.appendChild(pips);
     if (Z.sites.length) {
-      var sb = el("div", "sub"); sb.appendChild(el("h4", null, "Locais"));
+      var sb = el("div", "sub"); sb.appendChild(el("h4", null, tr("sites")));
       var ul = el("ul");
       Z.sites.forEach(function (S) { var li = el("li"); li.appendChild(el("b", null, S.name)); li.appendChild(document.createTextNode(". " + S.note)); ul.appendChild(li); });
       sb.appendChild(ul); dossier.appendChild(sb);
     }
-    if (Z.hooks.length) dossier.appendChild(subList("Ganchos de trama", Z.hooks));
+    if (Z.hooks.length) dossier.appendChild(subList(tr("hooks"), Z.hooks));
     if (Z.npcs.length) dossier.appendChild(subList(CITY.npcLabel, Z.npcs));
   }
 
@@ -808,6 +947,10 @@ button:focus-visible, input:focus-visible, .dlabel:focus-visible { outline: 2px 
     flight = { t0: performance.now(), ms: ms || 900, p0: camera.position.clone(), t0v: controls.target.clone(), p1: pos, t1: target };
   }
   function home() { var H = view === "all" ? HOME_ALL : HOME; flyTo(H.pos.clone(), H.target.clone()); }
+
+  function updateCompass() {
+    $("compass").textContent = "N ↑ · " + CITY.name + " · " + (view === "all" ? tr("allLayersLower") : LAYERS[view].name);
+  }
 
   function setView(v, fly) {
     view = v;
@@ -822,7 +965,7 @@ button:focus-visible, input:focus-visible, .dlabel:focus-visible { outline: 2px 
     if (sel >= 0 && !shown(ZONES[sel].L)) sel = -1;
     hov = -1;
     layerBtns.forEach(function (b) { b.el.setAttribute("aria-pressed", b.v === v ? "true" : "false"); });
-    $("compass").textContent = "N ↑ · " + CITY.name + " · " + (v === "all" ? "todas as camadas" : LAYERS[v].name);
+    updateCompass();
     refreshColors(); buildList(); renderDossier();
     if (fly) home();
   }
@@ -878,11 +1021,33 @@ button:focus-visible, input:focus-visible, .dlabel:focus-visible { outline: 2px 
   $("reset").addEventListener("click", function () { select(-1, false); home(); });
   $("showLabels").addEventListener("change", function (e) { labelsOn = e.target.checked; });
   $("showSites").addEventListener("change", function (e) { sitesOn = e.target.checked; });
-  document.title = CITY.title;
-  $("eyebrow").textContent = CITY.eyebrow;
-  $("cityName").textContent = CITY.name;
-  $("lede").textContent = CITY.lede;
-  $("scale").textContent = "Mapa fixo. 1 célula = 10 m, 1 quadra = 60 m, a cidade tem cerca de " + (N * 10) + " m de lado a lado. O espaçamento entre camadas na vista empilhada não está em escala.";
+  function applyStatic() {
+    document.documentElement.lang = lang === "en" ? "en" : "pt-BR";
+    document.title = CITY.title;
+    $("eyebrow").textContent = CITY.eyebrow;
+    $("cityName").textContent = CITY.name;
+    $("lede").textContent = CITY.lede;
+    $("scale").textContent = tr("scale")(N * 10);
+    Array.prototype.forEach.call(document.querySelectorAll("[data-i18n]"), function (n) { n.textContent = tr(n.dataset.i18n); });
+    Array.prototype.forEach.call(document.querySelectorAll("[data-i18n-aria]"), function (n) { n.setAttribute("aria-label", tr(n.dataset.i18nAria)); });
+    Array.prototype.forEach.call(document.querySelectorAll("#lang button"), function (b) { b.setAttribute("aria-pressed", b.dataset.lang === lang ? "true" : "false"); });
+  }
+  function setLang(l) {
+    if (!UI[l] || l === lang) return;
+    lang = l;
+    try { localStorage.setItem("ossei-lang", l); } catch (e) {}
+    applyData(l === "en" ? DATA_EN : DATA_PT);
+    applyStatic();
+    zoneLabels.forEach(function (e, g) { e.txt.nodeValue = ZONES[g].name; });
+    siteLabels.forEach(function (S) { S.el.textContent = S.s.name; });
+    buildLayerBtns(); updateCompass(); buildList(); renderDossier();
+    tip.hidden = true; hov = -1;
+  }
+  $("lang").addEventListener("click", function (e) {
+    var b = e.target.closest("button[data-lang]");
+    if (b) setLang(b.dataset.lang);
+  });
+  applyStatic();
 
   // ----- redimensionamento + laço -----
   function resize() {
